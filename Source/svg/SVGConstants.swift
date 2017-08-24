@@ -165,6 +165,12 @@ open class SVGConstants {
     open static let smoothCurveToRelative = "s"
     open static let closePathAbsolute = "Z"
     open static let closePathRelative = "z"
+    open static let quadraticBezierCurveToAbsolute = "Q"
+    open static let quadraticBezierCurveToRelative = "q"
+    open static let smoothQuadraticBezierCurveToAbsolute = "T"
+    open static let smoothQuadraticBezierCurveToRelative = "t"
+    open static let arcToAbsolute = "A"
+    open static let arcToRelative = "a"
     
     open static let pathCommands = [
         moveToAbsolute,
@@ -179,6 +185,15 @@ open class SVGConstants {
         curveToRelative,
         smoothCurveToAbsolute,
         smoothCurveToRelative,
+        quadraticBezierCurveToAbsolute,
+        quadraticBezierCurveToRelative,
+        smoothQuadraticBezierCurveToAbsolute,
+        smoothQuadraticBezierCurveToRelative,
+        arcToAbsolute,
+        arcToRelative
+    ]
+    
+    open static let pathValuelessCommands = [
         closePathAbsolute,
         closePathRelative
     ]

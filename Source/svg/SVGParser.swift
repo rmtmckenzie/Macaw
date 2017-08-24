@@ -41,6 +41,8 @@ open class SVGParser {
     fileprivate let xmlString: String
     fileprivate let initialPosition: Transform
     
+    fileprivate var width: Double?
+    fileprivate var height: Double?
     fileprivate var nodes = [Node]()
     fileprivate var defNodes = [String: Node]()
     fileprivate var defFills = [String: Fill]()
@@ -54,6 +56,9 @@ open class SVGParser {
         case curveTo
         case smoothCurveTo
         case closePath
+        case quadraticBezierCurveTo
+        case smoothQuadraticBezierCurveTo
+        case arcTo
         case none
     }
     
@@ -68,7 +73,7 @@ open class SVGParser {
         let parsedXml = SWXMLHash.parse(xmlString)
         iterateThroughXmlTree(parsedXml.children)
         
-        let group = Group(contents: self.nodes, place: initialPosition)
+        let group = Group(contents: self.nodes, place: initialPosition, width: width, height: height)
         return group
     }
     
@@ -77,6 +82,14 @@ open class SVGParser {
             if let element = child.element {
                 if element.name == "svg" {
                     iterateThroughXmlTree(child.children)
+                    // from github
+                    if let width = element.allAttributes["width"]?.text {
+                        self.width = Double(String(width.characters.filter({ "01234567890.".characters.contains($0) })))
+                    }
+                    if let height = element.allAttributes["height"]?.text {
+                        self.height = Double(String(height.characters.filter({ "01234567890.".characters.contains($0) })))
+                    }
+                    //end from github
                 } else if let node = parseNode(child) {
                     self.nodes.append(node)
                 }
@@ -939,11 +952,15 @@ open class SVGParser {
         var pathCommandName: NSString? = ""
         var pathCommandValues: NSString? = ""
         let scanner = Scanner(string: d)
-        let set = CharacterSet(charactersIn: SVGConstants.pathCommands.joined())
+        let commandSet = CharacterSet(charactersIn: SVGConstants.pathCommands.joined())
+        let valuelessCommandSet = CharacterSet(charactersIn: SVGConstants.pathValuelessCommands.joined())
+        let allCommandSet = commandSet.union(valuelessCommandSet);
         let charCount = d.characters.count
         repeat {
-            scanner.scanCharacters(from: set, into: &pathCommandName)
-            scanner.scanUpToCharacters(from: set, into: &pathCommandValues)
+            if(!scanner.scanCharacters(from: commandSet, into: &pathCommandName)) {
+                scanner.scanCharacters(from: valuelessCommandSet, into: &pathCommandName)
+            }
+            scanner.scanUpToCharacters(from: allCommandSet, into: &pathCommandValues)
             pathCommands.append(
                 PathCommand(
                     type: getCommandType(pathCommandName! as String),
@@ -955,7 +972,7 @@ open class SVGParser {
             if scanner.scanLocation == charCount {
                 break
             }
-        } while pathCommandValues!.length > 0
+        } while pathCommandName!.length > 0
         var commands = [PathSegment]()
         pathCommands.forEach { command in
             if let parsedCommand = parseCommand(command) {
@@ -1053,6 +1070,48 @@ open class SVGParser {
             }
             
             return PathSegment(type: command.absolute ? .S : .s, data: data)
+        
+        case .quadraticBezierCurveTo:
+            var data = [Double]()
+            separatedValues.forEach { value in
+                if let double = Double(value) {
+                    data.append(double)
+                }
+            }
+            
+            if data.count < 4 {
+                return .none
+            }
+            
+            return PathSegment(type: command.absolute ? .Q : .q, data: data)
+        
+        case .smoothQuadraticBezierCurveTo:
+            var data = [Double]()
+            separatedValues.forEach { value in
+                if let double = Double(value) {
+                    data.append(double)
+                }
+            }
+            
+            if data.count < 2 {
+                return .none
+            }
+            
+            return PathSegment(type: command.absolute ? .T : .t, data: data)
+        
+        case .arcTo:
+            var data = [Double]()
+            separatedValues.forEach { value in
+                if let double = Double(value) {
+                    data.append(double)
+                }
+            }
+            
+            if data.count < 7 {
+                return .none
+            }
+            
+            return PathSegment(type: command.absolute ? .A : .a, data: data)
             
         case .closePath:
             return PathSegment(type: .z)
@@ -1065,20 +1124,39 @@ open class SVGParser {
         var values = [String]()
         var value = String()
         var e = false
+        var afterE1 = false
+        var decimal = false;
         
         expression.unicodeScalars.forEach { scalar in
+            // track first character after e
+            let isFirstAfterE = e && !afterE1;
+            
             if scalar == "e" {
                 e = true
-            }
-            if scalar == "-" && !e {
+                decimal = false
+            } else if scalar == "-" && !isFirstAfterE {
                 if !value.isEmpty {
                     values.append(value)
                     value = String()
                 }
                 e = false
+                afterE1 = false
+                decimal = false
+            } else if scalar == "." && !decimal && !e {
+                decimal = true
+            } else if scalar == "." {
+                values.append(value)
+                value = String()
+                e = false
+                afterE1 = false
+                decimal = true
             }
             
             value.append("\(scalar)")
+            
+            if isFirstAfterE {
+                afterE1 = true;
+            }
         }
         
         if !value.isEmpty {
@@ -1118,6 +1196,18 @@ open class SVGParser {
             return true
         case SVGConstants.closePathRelative:
             return false
+        case SVGConstants.quadraticBezierCurveToAbsolute:
+            return true
+        case SVGConstants.quadraticBezierCurveToRelative:
+            return false
+        case SVGConstants.smoothQuadraticBezierCurveToAbsolute:
+            return true
+        case SVGConstants.smoothQuadraticBezierCurveToRelative:
+            return false
+        case SVGConstants.arcToAbsolute:
+            return true
+        case SVGConstants.arcToRelative:
+            return false
         default:
             return true
         }
@@ -1153,6 +1243,18 @@ open class SVGParser {
             return .closePath
         case SVGConstants.closePathRelative:
             return .closePath
+        case SVGConstants.quadraticBezierCurveToAbsolute:
+            return .quadraticBezierCurveTo
+        case SVGConstants.quadraticBezierCurveToRelative:
+            return .quadraticBezierCurveTo
+        case SVGConstants.smoothQuadraticBezierCurveToAbsolute:
+            return .smoothQuadraticBezierCurveTo
+        case SVGConstants.smoothQuadraticBezierCurveToRelative:
+            return .smoothQuadraticBezierCurveTo
+        case SVGConstants.arcToAbsolute:
+            return .arcTo
+        case SVGConstants.arcToRelative:
+            return .arcTo
         default:
             return .none
         }
