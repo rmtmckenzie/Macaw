@@ -9,18 +9,21 @@
 class ShapeAnimation: AnimationImpl<Shape> {
     convenience init(animatedNode: Shape, finalValue: Shape, animationDuration: Double, delay: Double = 0.0, autostart: Bool = false, fps: UInt = 30) {
         
+        let nodeId = animatedNode.id
         let interpolationFunc = { (t: Double) -> Shape in
             if t == 0 {
-                return Shape(form: animatedNode.form,
-                             fill: animatedNode.fill,
-                             stroke: animatedNode.stroke,
-                             place: animatedNode.place,
-                             opaque: animatedNode.opaque,
-                             opacity: animatedNode.opacity,
-                             clip: animatedNode.clip,
-                             effect: animatedNode.effect,
-                             visible: animatedNode.visible,
-                             tag: animatedNode.tag)
+                let initialNode = Node.nodeBy(id: nodeId) as! Shape
+                
+                return Shape(form: initialNode.form,
+                             fill: initialNode.fill,
+                             stroke: initialNode.stroke,
+                             place: initialNode.place,
+                             opaque: initialNode.opaque,
+                             opacity: initialNode.opacity,
+                             clip: initialNode.clip,
+                             effect: initialNode.effect,
+                             visible: initialNode.visible,
+                             tag: initialNode.tag)
             }
             
             return finalValue
@@ -32,7 +35,7 @@ class ShapeAnimation: AnimationImpl<Shape> {
     init(animatedNode: Shape, valueFunc: @escaping (Double) -> Shape, animationDuration: Double, delay: Double = 0.0, autostart: Bool = false, fps: UInt = 30) {
         super.init(observableValue: AnimatableVariable<Shape>(animatedNode), valueFunc: valueFunc, animationDuration: animationDuration, delay: delay, fps: fps)
         type = .shape
-        node = animatedNode
+        nodeId = animatedNode.id
         
         if autostart {
             self.play()
@@ -42,7 +45,7 @@ class ShapeAnimation: AnimationImpl<Shape> {
     init(animatedNode: Shape, factory: @escaping (() -> ((Double) -> Shape)), animationDuration: Double, delay: Double = 0.0, autostart: Bool = false, fps: UInt = 30) {
         super.init(observableValue: AnimatableVariable<Shape>(animatedNode), factory: factory, animationDuration: animationDuration, delay: delay, fps: fps)
         type = .shape
-        node = animatedNode
+        nodeId = animatedNode.id
         
         if autostart {
             self.play()
