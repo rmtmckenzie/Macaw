@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import SWXMLHash
 
 #if !CARTHAGE
     import SWXMLHash
@@ -643,7 +644,8 @@ open class SVGParser {
     }
     
     fileprivate func parseSimpleText(_ text: SWXMLHash.XMLElement, fill: Fill?, opacity: Double, fontName: String?, fontSize: Int?, pos: Transform = Transform()) -> Text? {
-        guard let string = text.text else {
+        let string = text.text
+        guard string.count > 0 else {
             return .none
         }
         let position = pos.move(dx: getDoubleValue(text, attribute: "x") ?? 0, dy: getDoubleValue(text, attribute: "y") ?? 0)
@@ -703,10 +705,10 @@ open class SVGParser {
     
     fileprivate func parseTspan(_ tspan: XMLIndexer, withWhitespace: Bool = false, fill: Fill?, opacity: Double, fontName: String?,
                                 fontSize: Int?, bounds: Rect) -> Text? {
-        
-        guard let element = tspan.element, let string = element.text else {
+        guard let element = tspan.element, element.text.count > 0 else {
             return .none
         }
+        let string = element.text
         var shouldAddWhitespace = withWhitespace
         let pos = getTspanPosition(element, bounds: bounds, withWhitespace: &shouldAddWhitespace)
         let text = shouldAddWhitespace ? " \(string)" : string
