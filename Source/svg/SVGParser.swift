@@ -995,6 +995,7 @@ open class SVGParser {
         repeat {
             if(!scanner.scanCharacters(from: commandSet, into: &pathCommandName)) {
                 scanner.scanCharacters(from: valuelessCommandSet, into: &pathCommandName)
+                pathCommandValues = ""
             }
             scanner.scanUpToCharacters(from: allCommandSet, into: &pathCommandValues)
             pathCommands.append(
@@ -1009,16 +1010,15 @@ open class SVGParser {
                 break
             }
         } while pathCommandName!.length > 0
+        
         var commands = [PathSegment]()
         pathCommands.forEach { command in
-            if let parsedCommand = parseCommand(command) {
-                commands.append(parsedCommand)
-            }
+            commands.append(contentsOf: parseCommand(command))
         }
         return commands
     }
     
-    fileprivate func parseCommand(_ command: PathCommand) -> PathSegment? {
+    fileprivate func parseCommand(_ command: PathCommand) -> [PathSegment] {
         var characterSet = CharacterSet()
         characterSet.insert(" ")
         characterSet.insert(",")
@@ -1027,132 +1027,120 @@ open class SVGParser {
         commandParams.forEach { param in
             separatedValues.append(contentsOf: separateNegativeValuesIfNeeded(param))
         }
+    
+        var pathSegments = [PathSegment]()
         
-        switch command.type {
+        while true {
+            if let pathSegment = parseIndividualCommand(command.type, absolute: command.absolute, separatedValues: &separatedValues) {
+                pathSegments.append(pathSegment)
+            } else {
+                break
+            }
+            
+            if separatedValues.count == 0 {
+                break
+            }
+        }
+        
+        return pathSegments
+    }
+    
+    fileprivate func parseDoubles(_ values: inout [String], num: Int) -> [Double]? {
+        guard values.count >= num else {
+            return nil
+        }
+        
+        let data = values[0..<num].flatMap({ Double($0) })
+        
+        guard data.count == num else {
+            return nil
+        }
+        
+        values = Array(values[num..<values.count])
+        
+        return data
+    }
+    
+    fileprivate func parseIndividualCommand(_ type: PathCommandType, absolute: Bool, separatedValues: inout [String]) -> PathSegment? {
+        switch type {
         case .moveTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 2) else {
+                return nil
             }
-            
-            if data.count < 2 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .M : .m, data: data)
-            
+
+            return PathSegment(type: absolute ? .M : .m, data: data)
         case .lineTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 2) else {
+                return nil
             }
-            
-            if data.count < 2 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .L : .l, data: data)
-            
+
+            return PathSegment(type: absolute ? .L : .l, data: data)
         case .lineH:
-            if separatedValues.count < 1 {
-                return .none
+            guard let data = parseDoubles(&separatedValues, num: 1) else {
+                return nil
             }
             
-            guard let x = Double(separatedValues[0]) else {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .H : .h, data: [x])
+            return PathSegment(type: absolute ? .H : .h, data: data)
             
         case .lineV:
-            if separatedValues.count < 1 {
-                return .none
+            guard let data = parseDoubles(&separatedValues, num: 1) else {
+                return nil
             }
             
-            guard let y = Double(separatedValues[0]) else {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .V : .v, data: [y])
+            return PathSegment(type: absolute ? .V : .v, data: data)
             
         case .curveTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 6) else {
+                return nil
             }
             
-            if data.count < 6 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .C : .c, data: data)
+            return PathSegment(type: absolute ? .C : .c, data: data)
             
         case .smoothCurveTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 4) else {
+                return nil
             }
             
-            if data.count < 4 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .S : .s, data: data)
+            return PathSegment(type: absolute ? .S : .s, data: data)
         
         case .quadraticBezierCurveTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 4) else {
+                return nil
             }
             
-            if data.count < 4 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .Q : .q, data: data)
+            return PathSegment(type: absolute ? .Q : .q, data: data)
         
         case .smoothQuadraticBezierCurveTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard let data = parseDoubles(&separatedValues, num: 2) else {
+                return nil
             }
             
-            if data.count < 2 {
-                return .none
-            }
-            
-            return PathSegment(type: command.absolute ? .T : .t, data: data)
+            return PathSegment(type: absolute ? .T : .t, data: data)
         
         case .arcTo:
-            var data = [Double]()
-            separatedValues.forEach { value in
-                if let double = Double(value) {
-                    data.append(double)
-                }
+            guard separatedValues.count >= 7 else {
+                return nil
             }
             
-            if data.count < 7 {
-                return .none
+            let data1 = separatedValues[0...2].flatMap({ Double($0) })
+            let flags = separatedValues[3...4].flatMap({ Int($0) })
+            let data2 = separatedValues[5...6].flatMap({ Double($0) })
+            
+            if data1.count != 3 || flags.count != 2 || data2.count != 2 {
+                return nil
             }
             
-            return PathSegment(type: command.absolute ? .A : .a, data: data)
+            let flagCompact = (flags[0] & 1) | ((flags[1] & 1) << 1)
             
+            let data = data1 + [Double(flagCompact)] + data2
+            
+            separatedValues = Array(separatedValues[7..<separatedValues.count])
+            
+            return PathSegment(type: absolute ? .A : .a, data: data)
         case .closePath:
             return PathSegment(type: .z)
         default:
-            return .none
+            return nil
         }
     }
     

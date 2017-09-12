@@ -71,9 +71,41 @@ func pathSegmenInfo(_ segment: PathSegment, currentPoint: Point?, currentBezierP
       return (Rect(x: 0.0, y: 0.0, w: 0.0, h: data[0]), Point(x: 0.0, y: data[0]), .none)
     case .l, .L:
       return (Rect(x: data[0], y: data[1], w: 0.0, h: 0.0), Point(x: data[0], y: data[1]), .none)
+    case .q, .Q:
+      return (cubicBounds(data), Point(x: data[2], y: data[3]), Point(x: data[0], y: data[1]))
+    case .t, .T:
+      guard let currentPoint = currentPoint else {
+        return (.none, .none, .none)
+      }
+    
+      var p1 = currentPoint
+      if let bezierPoint = currentBezierPoint {
+        p1 = Point(
+          x: 2.0 * currentPoint.x - bezierPoint.x,
+          y: 2.0 * currentPoint.y - bezierPoint.y
+        )
+      }
+      
+      return (sQuadraticBounds(data, currentPoint: currentPoint, currentBezierPoint: currentBezierPoint),
+              Point(x: data[0], y: data[1]),
+              Point(x: p1.x, y: p1.y))
+    case .a, .A:
+        return (nil, nil, nil)
     default:
       return (.none, .none, .none)
     }
+}
+
+private func quadraticBounds(_ data: [Double]) -> Rect {
+  let p0 = Point(x: 0, y: 0)
+  let p1 = Point(x: data[0], y: data[1])
+  let p2 = p1 // quadratic is actually cubic with both points being the same
+  let p3 = Point(x: data[2], y: data[3])
+    
+  let bezier3 = { (t: Double) -> Point in BezierFunc2D(t, p0: p0, p1: p1, p2: p2, p3: p3) }
+    
+  // TODO: Replace with accurate implementation via derivative
+  return boundsForFunc(bezier3)
 }
 
 private func cubicBounds(_ data: [Double]) -> Rect {
@@ -88,8 +120,25 @@ private func cubicBounds(_ data: [Double]) -> Rect {
   return boundsForFunc(bezier3)
 }
 
+private func sQuadraticBounds(_ data: [Double], currentPoint: Point, currentBezierPoint: Point?) -> Rect {
+  let p0 = Point(x: 0, y: 0)
+  let p3 = Point(x: data[0], y: data[1])
+
+  var p1 = currentPoint
+    if let bezierPoint = currentBezierPoint {
+        p1 = Point(
+            x: 2.0 * currentPoint.x - bezierPoint.x,
+            y: 2.0 * currentPoint.y - bezierPoint.y)
+    }
+    let p2 = p1 // quadratic is actually cubic with the two points being the same
+    
+    let bezier3 = { (t: Double) -> Point in return BezierFunc2D(t, p0: p0, p1: p1, p2: p2, p3: p3) }
+    
+    // TODO: Replace with accurate implementation via derivative
+    return boundsForFunc(bezier3)
+}
+
 private func sCubicBounds(_ data: [Double], currentPoint: Point, currentBezierPoint: Point?) -> Rect {
-  
   let p0 = Point(x: 0, y: 0)
   let p1 = Point(x: data[0], y: data[1])
   let p3 = Point(x: data[2], y: data[3])

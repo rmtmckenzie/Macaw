@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "90DF9A891F5B0E7F000012F9"
-               BuildableName = "MACAW.framework"
+               BuildableName = "Macaw.framework"
                BlueprintName = "Macaw OSX"
                ReferencedContainer = "container:Macaw.xcodeproj">
             </BuildableReference>
@@ -48,7 +48,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "90DF9A891F5B0E7F000012F9"
-            BuildableName = "MACAW.framework"
+            BuildableName = "Macaw.framework"
             BlueprintName = "Macaw OSX"
             ReferencedContainer = "container:Macaw.xcodeproj">
          </BuildableReference>
@@ -66,7 +66,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "90DF9A891F5B0E7F000012F9"
-            BuildableName = "MACAW.framework"
+            BuildableName = "Macaw.framework"
             BlueprintName = "Macaw OSX"
             ReferencedContainer = "container:Macaw.xcodeproj">
          </BuildableReference>
